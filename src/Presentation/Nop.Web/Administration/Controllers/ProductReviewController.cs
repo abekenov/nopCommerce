@@ -117,16 +117,16 @@ namespace Nop.Admin.Controllers
                             : (DateTime?)_dateTimeHelper.ConvertToUtcTime(model.CreatedOnTo.Value, _dateTimeHelper.CurrentTimeZone).AddDays(1);
 
             var productReviews = _productService.GetAllProductReviews(0, null, 
-                createdOnFromValue, createdToFromValue, model.SearchText, model.SearchStoreId, model.SearchProductId);
+                createdOnFromValue, createdToFromValue, model.SearchText, model.SearchStoreId, model.SearchProductId, command.Page - 1, command.PageSize);
             var gridModel = new DataSourceResult
             {
-                Data = productReviews.PagedForCommand(command).Select(x =>
+                Data = productReviews.Select(x =>
                 {
                     var m = new ProductReviewModel();
                     PrepareProductReviewModel(m, x, false, true);
                     return m;
                 }),
-                Total = productReviews.Count,
+                Total = productReviews.TotalCount
             };
 
             return Json(gridModel);
@@ -257,11 +257,13 @@ namespace Nop.Admin.Controllers
             if (selectedIds != null)
             {
                 var productReviews = _productService.GetProducReviewsByIds(selectedIds.ToArray());
-                foreach (var productReview in productReviews)
+                var products = _productService.GetProductsByIds(productReviews.Select(p => p.ProductId).Distinct().ToArray());
+
+                _productService.DeleteProductReviews(productReviews);
+
+                //update product totals
+                foreach (var product in products)
                 {
-                    var product = productReview.Product;
-                    _productService.DeleteProductReview(productReview);
-                    //update product totals
                     _productService.UpdateProductReviewTotals(product);
                 }
             }

@@ -36,6 +36,7 @@ using Nop.Web.Framework.Security;
 using Nop.Web.Framework.Security.Captcha;
 using Nop.Web.Infrastructure.Cache;
 using Nop.Web.Models.Catalog;
+using Nop.Web.Models.Common;
 using Nop.Web.Models.Media;
 
 namespace Nop.Web.Controllers
@@ -212,6 +213,7 @@ namespace Nop.Web.Controllers
                 MetaDescription = product.GetLocalized(x => x.MetaDescription),
                 MetaTitle = product.GetLocalized(x => x.MetaTitle),
                 SeName = product.GetSeName(),
+                ProductType = product.ProductType,
                 ShowSku = _catalogSettings.ShowProductSku,
                 Sku = product.Sku,
                 ShowManufacturerPartNumber = _catalogSettings.ShowManufacturerPartNumber,
@@ -1017,6 +1019,10 @@ namespace Nop.Web.Controllers
             //save as recently viewed
             _recentlyViewedProductsService.AddProductToRecentlyViewedList(product.Id);
 
+            //display "edit" (manage) link
+            if (_permissionService.Authorize(StandardPermissionProvider.AccessAdminPanel) && _permissionService.Authorize(StandardPermissionProvider.ManageProducts))
+                DisplayEditLink(Url.Action("Edit", "Product", new { id = product.Id, area = "Admin" }));
+
             //activity log
             _customerActivityService.InsertActivity("PublicStore.ViewProduct", _localizationService.GetResource("ActivityLog.PublicStore.ViewProduct"), product.Name);
 
@@ -1194,7 +1200,7 @@ namespace Nop.Web.Controllers
                 pageSize: _catalogSettings.NewProductsNumber);
             foreach (var product in products)
             {
-                string productUrl = Url.RouteUrl("Product", new { SeName = product.GetSeName() }, "http");
+                string productUrl = Url.RouteUrl("Product", new { SeName = product.GetSeName() }, _webHelper.IsCurrentConnectionSecured() ? "https" : "http");
                 string productName = product.GetLocalized(x => x.Name);
                 string productDescription = product.GetLocalized(x => x.ShortDescription);
                 var item = new SyndicationItem(productName, productDescription, new Uri(productUrl), String.Format("urn:store:{0}:newProducts:product:{1}", _storeContext.CurrentStore.Id, product.Id), product.CreatedOnUtc);
@@ -1419,6 +1425,73 @@ namespace Nop.Web.Controllers
                 TotalYes = productReview.HelpfulYesTotal,
                 TotalNo = productReview.HelpfulNoTotal
             });
+        }
+
+        public ActionResult CustomerProductReviews(int? page)
+        {
+            if (_workContext.CurrentCustomer.IsGuest())
+                return new HttpUnauthorizedResult();
+
+            if (!_catalogSettings.ShowProductReviewsTabOnAccountPage)
+            {
+                return RedirectToRoute("CustomerInfo");
+            }
+
+            var pageSize = _catalogSettings.ProductReviewsPageSizeOnAccountPage;
+            int pageIndex = 0;
+
+            if (page > 0)
+            {
+                pageIndex = page.Value - 1;
+            }
+
+            var list = _productService.GetAllProductReviews(_workContext.CurrentCustomer.Id, null,
+                            pageIndex: pageIndex, pageSize: pageSize);
+
+            var productReviews = new List<CustomerProductReviewModel>();
+
+            foreach (var review in list)
+            {
+                var product = review.Product;
+                var productReviewModel = new CustomerProductReviewModel
+                {
+                    Title = review.Title,
+                    ProductId = product.Id,
+                    ProductName = product.GetLocalized(p => p.Name),
+                    ProductSeName = product.GetSeName(),
+                    Rating = review.Rating,
+                    ReviewText = review.ReviewText,
+                    WrittenOnStr =
+                        _dateTimeHelper.ConvertToUserTime(product.CreatedOnUtc, DateTimeKind.Utc).ToString("g")
+                };
+
+                if (_catalogSettings.ProductReviewsMustBeApproved)
+                {
+                    productReviewModel.ApprovalStatus = review.IsApproved
+                        ? _localizationService.GetResource("Account.CustomerProductReviews.ApprovalStatus.Approved")
+                        : _localizationService.GetResource("Account.CustomerProductReviews.ApprovalStatus.Pending");
+                }
+                productReviews.Add(productReviewModel);
+            }
+
+            var pagerModel = new PagerModel
+            {
+                PageSize = list.PageSize,
+                TotalRecords = list.TotalCount,
+                PageIndex = list.PageIndex,
+                ShowTotalSummary = false,
+                RouteActionName = "CustomerProductReviewsPaged",
+                UseRouteLinks = true,
+                RouteValues = new CustomerProductReviewsModel.CustomerProductReviewsRouteValues { page = pageIndex }
+            };
+
+            var model = new CustomerProductReviewsModel
+            {
+                ProductReviews = productReviews,
+                PagerModel = pagerModel
+            };
+
+            return View(model);
         }
 
         #endregion

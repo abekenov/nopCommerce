@@ -37,6 +37,7 @@ using Nop.Web.Framework.Localization;
 using Nop.Web.Framework.Security;
 using Nop.Web.Framework.Security.Captcha;
 using Nop.Web.Framework.Themes;
+using Nop.Web.Framework.UI;
 using Nop.Web.Infrastructure.Cache;
 using Nop.Web.Models.Catalog;
 using Nop.Web.Models.Common;
@@ -69,6 +70,7 @@ namespace Nop.Web.Controllers
         private readonly ICacheManager _cacheManager;
         private readonly ICustomerActivityService _customerActivityService;
         private readonly IVendorService _vendorService;
+        private readonly IPageHeadBuilder _pageHeadBuilder;
 
         private readonly CustomerSettings _customerSettings;
         private readonly TaxSettings _taxSettings;
@@ -94,30 +96,31 @@ namespace Nop.Web.Controllers
             ILanguageService languageService,
             ICurrencyService currencyService,
             ILocalizationService localizationService,
-            IWorkContext workContext, 
+            IWorkContext workContext,
             IStoreContext storeContext,
-            IQueuedEmailService queuedEmailService, 
+            IQueuedEmailService queuedEmailService,
             IEmailAccountService emailAccountService,
             ISitemapGenerator sitemapGenerator,
             IThemeContext themeContext,
             IThemeProvider themeProvider,
             IForumService forumService,
-            IGenericAttributeService genericAttributeService, 
+            IGenericAttributeService genericAttributeService,
             IWebHelper webHelper,
             IPermissionService permissionService,
             ICacheManager cacheManager,
             ICustomerActivityService customerActivityService,
             IVendorService vendorService,
-            CustomerSettings customerSettings, 
-            TaxSettings taxSettings, 
+            IPageHeadBuilder pageHeadBuilder,
+            CustomerSettings customerSettings,
+            TaxSettings taxSettings,
             CatalogSettings catalogSettings,
             StoreInformationSettings storeInformationSettings,
             EmailAccountSettings emailAccountSettings,
-            CommonSettings commonSettings, 
-            BlogSettings blogSettings, 
+            CommonSettings commonSettings,
+            BlogSettings blogSettings,
             NewsSettings newsSettings,
             ForumSettings forumSettings,
-            LocalizationSettings localizationSettings, 
+            LocalizationSettings localizationSettings,
             CaptchaSettings captchaSettings,
             VendorSettings vendorSettings)
         {
@@ -142,6 +145,8 @@ namespace Nop.Web.Controllers
             this._cacheManager = cacheManager;
             this._customerActivityService = customerActivityService;
             this._vendorService = vendorService;
+            this._pageHeadBuilder = pageHeadBuilder;
+
 
             this._customerSettings = customerSettings;
             this._taxSettings = taxSettings;
@@ -242,7 +247,7 @@ namespace Nop.Web.Controllers
             //prevent open redirection attack
             if (!Url.IsLocalUrl(returnUrl))
                 returnUrl = Url.RouteUrl("HomePage");
-            
+
             //language part in URL
             if (_localizationSettings.SeoFriendlyUrlsForLanguagesEnabled)
             {
@@ -308,7 +313,7 @@ namespace Nop.Web.Controllers
             //home page
             if (String.IsNullOrEmpty(returnUrl))
                 returnUrl = Url.RouteUrl("HomePage");
-            
+
             //prevent open redirection attack
             if (!Url.IsLocalUrl(returnUrl))
                 returnUrl = Url.RouteUrl("HomePage");
@@ -347,7 +352,7 @@ namespace Nop.Web.Controllers
 
             return Redirect(returnUrl);
         }
-        
+
         //footer
         [ChildActionOnly]
         public ActionResult JavaScriptDisabledWarning()
@@ -417,10 +422,31 @@ namespace Nop.Web.Controllers
                 ImpersonatedCustomerEmailUsername = customer.IsRegistered() ? (_customerSettings.UsernamesEnabled ? customer.Username : customer.Email) : "",
                 IsCustomerImpersonated = _workContext.OriginalCustomerIfImpersonated != null,
                 DisplayAdminLink = _permissionService.Authorize(StandardPermissionProvider.AccessAdminPanel),
+                EditPageUrl = _pageHeadBuilder.GetEditPageUrl()
             };
 
             return PartialView(model);
         }
+
+
+        //social
+        [ChildActionOnly]
+        public ActionResult Social()
+        {
+            //model
+            var model = new SocialModel
+            {
+                FacebookLink = _storeInformationSettings.FacebookLink,
+                TwitterLink = _storeInformationSettings.TwitterLink,
+                YoutubeLink = _storeInformationSettings.YoutubeLink,
+                GooglePlusLink = _storeInformationSettings.GooglePlusLink,
+                WorkingLanguageId = _workContext.WorkingLanguage.Id,
+                NewsEnabled = _newsSettings.Enabled,
+            };
+
+            return PartialView(model);
+        }
+
 
         //footer
         [ChildActionOnly]
@@ -428,7 +454,7 @@ namespace Nop.Web.Controllers
         {
             //footer topics
             string topicCacheKey = string.Format(ModelCacheEventConsumer.TOPIC_FOOTER_MODEL_KEY,
-                _workContext.WorkingLanguage.Id, 
+                _workContext.WorkingLanguage.Id,
                 _storeContext.CurrentStore.Id,
                 string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()));
             var cachedTopicModel = _cacheManager.Get(topicCacheKey, () =>
@@ -454,10 +480,6 @@ namespace Nop.Web.Controllers
                 ShoppingCartEnabled = _permissionService.Authorize(StandardPermissionProvider.EnableShoppingCart),
                 SitemapEnabled = _commonSettings.SitemapEnabled,
                 WorkingLanguageId = _workContext.WorkingLanguage.Id,
-                FacebookLink = _storeInformationSettings.FacebookLink,
-                TwitterLink = _storeInformationSettings.TwitterLink,
-                YoutubeLink = _storeInformationSettings.YoutubeLink,
-                GooglePlusLink = _storeInformationSettings.GooglePlusLink,
                 BlogEnabled = _blogSettings.Enabled,
                 CompareProductsEnabled = _catalogSettings.CompareProductsEnabled,
                 ForumEnabled = _forumSettings.ForumsEnabled,
@@ -477,7 +499,7 @@ namespace Nop.Web.Controllers
         //contact us page
         [NopHttpsRequirement(SslRequirement.Yes)]
         //available even when a store is closed
-        [StoreClosed(true)] 
+        [StoreClosed(true)]
         public ActionResult ContactUs()
         {
             var model = new ContactUsModel
@@ -493,7 +515,7 @@ namespace Nop.Web.Controllers
         [PublicAntiForgery]
         [CaptchaValidator]
         //available even when a store is closed
-        [StoreClosed(true)] 
+        [StoreClosed(true)]
         public ActionResult ContactUsSend(ContactUsModel model, bool captchaValid)
         {
             //validate CAPTCHA
@@ -524,8 +546,8 @@ namespace Nop.Web.Controllers
                 {
                     from = emailAccount.Email;
                     fromName = emailAccount.DisplayName;
-                    body = string.Format("<strong>From</strong>: {0} - {1}<br /><br />{2}", 
-                        Server.HtmlEncode(fullName), 
+                    body = string.Format("<strong>From</strong>: {0} - {1}<br /><br />{2}",
+                        Server.HtmlEncode(fullName),
                         Server.HtmlEncode(email), body);
                 }
                 else
@@ -547,7 +569,7 @@ namespace Nop.Web.Controllers
                     CreatedOnUtc = DateTime.UtcNow,
                     EmailAccountId = emailAccount.Id
                 });
-                
+
                 model.SuccessfullySent = true;
                 model.Result = _localizationService.GetResource("ContactUs.YourEnquiryHasBeenSent");
 
@@ -667,7 +689,7 @@ namespace Nop.Web.Controllers
             if (!_commonSettings.SitemapEnabled)
                 return RedirectToRoute("HomePage");
 
-            string cacheKey = string.Format(ModelCacheEventConsumer.SITEMAP_PAGE_MODEL_KEY, 
+            string cacheKey = string.Format(ModelCacheEventConsumer.SITEMAP_PAGE_MODEL_KEY,
                 _workContext.WorkingLanguage.Id,
                 string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
                 _storeContext.CurrentStore.Id);
@@ -682,13 +704,13 @@ namespace Nop.Web.Controllers
                 //categories
                 if (_commonSettings.SitemapIncludeCategories)
                 {
-                    var categories = _categoryService.GetAllCategories();
+                    var categories = _categoryService.GetAllCategories(storeId: _storeContext.CurrentStore.Id);
                     model.Categories = categories.Select(x => x.ToModel()).ToList();
                 }
                 //manufacturers
                 if (_commonSettings.SitemapIncludeManufacturers)
                 {
-                    var manufacturers = _manufacturerService.GetAllManufacturers();
+                    var manufacturers = _manufacturerService.GetAllManufacturers(storeId: _storeContext.CurrentStore.Id);
                     model.Manufacturers = manufacturers.Select(x => x.ToModel()).ToList();
                 }
                 //products
@@ -736,7 +758,7 @@ namespace Nop.Web.Controllers
             if (!_commonSettings.SitemapEnabled)
                 return RedirectToRoute("HomePage");
 
-            string cacheKey = string.Format(ModelCacheEventConsumer.SITEMAP_SEO_MODEL_KEY, 
+            string cacheKey = string.Format(ModelCacheEventConsumer.SITEMAP_SEO_MODEL_KEY,
                 _workContext.WorkingLanguage.Id,
                 string.Join(",", _workContext.CurrentCustomer.GetCustomerRoleIds()),
                 _storeContext.CurrentStore.Id);
@@ -806,7 +828,7 @@ namespace Nop.Web.Controllers
             };
             return PartialView(model);
         }
-        
+
         //EU Cookie law
         [ChildActionOnly]
         public ActionResult EuCookieLaw()
@@ -855,12 +877,12 @@ namespace Nop.Web.Controllers
         {
             var sb = new StringBuilder();
 
-            //if robots.txt exists, let's use it
-            string robotsFile = System.IO.Path.Combine(_webHelper.MapPath("~/"), "robots.custom.txt");
-            if (System.IO.File.Exists(robotsFile))
+            //if robots.custom.txt exists, let's use it instead of hard-coded data below
+            string robotsFilePath = System.IO.Path.Combine(CommonHelper.MapPath("~/"), "robots.custom.txt");
+            if (System.IO.File.Exists(robotsFilePath))
             {
                 //the robots.txt file exists
-                string robotsFileContent = System.IO.File.ReadAllText(robotsFile);
+                string robotsFileContent = System.IO.File.ReadAllText(robotsFilePath);
                 sb.Append(robotsFileContent);
             }
             else
@@ -982,7 +1004,7 @@ namespace Nop.Web.Controllers
                 }
 
                 //load and add robots.txt additions to the end of file.
-                string robotsAdditionsFile = System.IO.Path.Combine(_webHelper.MapPath("~/"), "robots.additions.txt");
+                string robotsAdditionsFile = System.IO.Path.Combine(CommonHelper.MapPath("~/"), "robots.additions.txt");
                 if (System.IO.File.Exists(robotsAdditionsFile))
                 {
                     string robotsFileContent = System.IO.File.ReadAllText(robotsAdditionsFile);
@@ -991,7 +1013,7 @@ namespace Nop.Web.Controllers
             }
 
 
-            Response.ContentType = "text/plain";
+            Response.ContentType = MimeTypes.TextPlain;
             Response.Write(sb.ToString());
             return null;
         }
@@ -1004,7 +1026,7 @@ namespace Nop.Web.Controllers
 
         //store is closed
         //available even when a store is closed
-        [StoreClosed(true)] 
+        [StoreClosed(true)]
         public ActionResult StoreClosed()
         {
             return View();

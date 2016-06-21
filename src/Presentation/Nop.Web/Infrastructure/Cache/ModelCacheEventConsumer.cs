@@ -140,6 +140,25 @@ namespace Nop.Web.Infrastructure.Cache
         //shopping cart items
         IConsumer<EntityUpdated<ShoppingCartItem>>
     {
+
+        #region Cache keys 
+
+        private readonly ICacheManager _cacheManager;
+
+        #endregion
+
+        #region Ctor
+
+        public ModelCacheEventConsumer()
+        {
+            //TODO inject static cache manager using constructor
+            this._cacheManager = EngineContext.Current.ContainerManager.Resolve<ICacheManager>("nop_cache_static");
+        }
+        
+        #endregion 
+
+        #region Cache keys 
+
         /// <summary>
         /// Key for categories on the search page
         /// </summary>
@@ -246,7 +265,7 @@ namespace Nop.Web.Infrastructure.Cache
         /// {3} : language ID
         /// {4} : is connection SSL secured (included in a category picture URL)
         /// </remarks>
-        public const string CATEGORY_SUBCATEGORIES_KEY = "Nop.pres.category.subcategories-{0}-{1}-{2}-{3}-{4}";
+        public const string CATEGORY_SUBCATEGORIES_KEY = "Nop.pres.category.subcategories-{0}-{1}-{2}-{3}-{4}-{5}";
         public const string CATEGORY_SUBCATEGORIES_PATTERN_KEY = "Nop.pres.category.subcategories";
 
         /// <summary>
@@ -258,7 +277,7 @@ namespace Nop.Web.Infrastructure.Cache
         /// {2} : language ID
         /// {3} : is connection SSL secured (included in a category picture URL)
         /// </remarks>
-        public const string CATEGORY_HOMEPAGE_KEY = "Nop.pres.category.homepage-{0}-{1}-{2}-{3}";
+        public const string CATEGORY_HOMEPAGE_KEY = "Nop.pres.category.homepage-{0}-{1}-{2}-{3}-{4}";
         public const string CATEGORY_HOMEPAGE_PATTERN_KEY = "Nop.pres.category.homepage";
         
         /// <summary>
@@ -712,13 +731,9 @@ namespace Nop.Web.Infrastructure.Cache
         public const string WIDGET_MODEL_KEY = "Nop.pres.widget-{0}-{1}-{2}";
         public const string WIDGET_PATTERN_KEY = "Nop.pres.widget";
 
-        private readonly ICacheManager _cacheManager;
-        
-        public ModelCacheEventConsumer()
-        {
-            //TODO inject static cache manager using constructor
-            this._cacheManager = EngineContext.Current.ContainerManager.Resolve<ICacheManager>("nop_cache_static");
-        }
+        #endregion
+
+        #region Methods
 
         //languages
         public void HandleEvent(EntityInserted<Language> eventMessage)
@@ -731,7 +746,6 @@ namespace Nop.Web.Infrastructure.Cache
             _cacheManager.RemoveByPattern(TOPIC_PATTERN_KEY);
             _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
             _cacheManager.RemoveByPattern(CATEGORY_NAVIGATION_PATTERN_KEY);
-            _cacheManager.RemoveByPattern(CATEGORY_NUMBER_OF_PRODUCTS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(STATEPROVINCES_PATTERN_KEY);
             _cacheManager.RemoveByPattern(AVAILABLE_LANGUAGES_PATTERN_KEY);
@@ -747,7 +761,6 @@ namespace Nop.Web.Infrastructure.Cache
             _cacheManager.RemoveByPattern(TOPIC_PATTERN_KEY);
             _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
             _cacheManager.RemoveByPattern(CATEGORY_NAVIGATION_PATTERN_KEY);
-            _cacheManager.RemoveByPattern(CATEGORY_NUMBER_OF_PRODUCTS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(STATEPROVINCES_PATTERN_KEY);
             _cacheManager.RemoveByPattern(AVAILABLE_LANGUAGES_PATTERN_KEY);
@@ -763,7 +776,6 @@ namespace Nop.Web.Infrastructure.Cache
             _cacheManager.RemoveByPattern(TOPIC_PATTERN_KEY);
             _cacheManager.RemoveByPattern(PRODUCT_BREADCRUMB_PATTERN_KEY);
             _cacheManager.RemoveByPattern(CATEGORY_NAVIGATION_PATTERN_KEY);
-            _cacheManager.RemoveByPattern(CATEGORY_NUMBER_OF_PRODUCTS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(PRODUCT_MANUFACTURERS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(STATEPROVINCES_PATTERN_KEY);
             _cacheManager.RemoveByPattern(AVAILABLE_LANGUAGES_PATTERN_KEY);
@@ -800,7 +812,6 @@ namespace Nop.Web.Infrastructure.Cache
             _cacheManager.RemoveByPattern(NEWS_PATTERN_KEY); //depends on NewsSettings.MainPageNewsCount
             _cacheManager.RemoveByPattern(SITEMAP_PATTERN_KEY); //depends on distinct sitemap settings
             _cacheManager.RemoveByPattern(WIDGET_PATTERN_KEY); //depends on WidgetSettings and certain settings of widgets
-
         }
 
         //vendors
@@ -860,7 +871,6 @@ namespace Nop.Web.Infrastructure.Cache
              _cacheManager.RemoveByPattern(CATEGORY_NAVIGATION_PATTERN_KEY); 
              _cacheManager.RemoveByPattern(CATEGORY_MENU_PATTERN_KEY);
              _cacheManager.RemoveByPattern(CATEGORY_CHILD_IDENTIFIERS_PATTERN_KEY);
-             _cacheManager.RemoveByPattern(CATEGORY_BREADCRUMB_PATTERN_KEY);
              _cacheManager.RemoveByPattern(CATEGORY_SUBCATEGORIES_PATTERN_KEY);
              _cacheManager.RemoveByPattern(CATEGORY_HOMEPAGE_PATTERN_KEY);
              _cacheManager.RemoveByPattern(SITEMAP_PATTERN_KEY);
@@ -942,7 +952,6 @@ namespace Nop.Web.Infrastructure.Cache
             _cacheManager.RemoveByPattern(PRODUCTS_ALSO_PURCHASED_IDS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(PRODUCTS_RELATED_IDS_PATTERN_KEY);
             _cacheManager.RemoveByPattern(SITEMAP_PATTERN_KEY);
-            _cacheManager.RemoveByPattern(PRODUCT_REVIEWS_PATTERN_KEY);
         }
         
         //product tags
@@ -1290,5 +1299,7 @@ namespace Nop.Web.Infrastructure.Cache
         {
             _cacheManager.RemoveByPattern(PRODUCT_REVIEWS_PATTERN_KEY);
         }
+
+        #endregion
     }
 }

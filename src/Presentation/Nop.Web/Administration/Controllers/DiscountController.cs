@@ -213,7 +213,15 @@ namespace Nop.Admin.Controllers
                 _customerActivityService.InsertActivity("AddNewDiscount", _localizationService.GetResource("ActivityLog.AddNewDiscount"), discount.Name);
 
                 SuccessNotification(_localizationService.GetResource("Admin.Promotions.Discounts.Added"));
-                return continueEditing ? RedirectToAction("Edit", new { id = discount.Id }) : RedirectToAction("List");
+
+                if (continueEditing)
+                {
+                    //selected tab
+                    SaveSelectedTabName();
+
+                    return RedirectToAction("Edit", new { id = discount.Id });
+                }
+                return RedirectToAction("List");
             }
 
             //If we got this far, something failed, redisplay form
@@ -289,7 +297,7 @@ namespace Nop.Admin.Controllers
                 if (continueEditing)
                 {
                     //selected tab
-                    SaveSelectedTabIndex();
+                    SaveSelectedTabName();
 
                     return RedirectToAction("Edit",  new {id = discount.Id});
                 }
@@ -609,7 +617,7 @@ namespace Nop.Admin.Controllers
                 return AccessDeniedView();
 
             var categories = _categoryService.GetAllCategories(model.SearchCategoryName,
-                command.Page - 1, command.PageSize, true);
+                0, command.Page - 1, command.PageSize, true);
             var gridModel = new DataSourceResult
             {
                 Data = categories.Select(x =>
@@ -725,7 +733,7 @@ namespace Nop.Admin.Controllers
                 return AccessDeniedView();
 
             var manufacturers = _manufacturerService.GetAllManufacturers(model.SearchManufacturerName,
-                command.Page - 1, command.PageSize, true);
+                0, command.Page - 1, command.PageSize, true);
             var gridModel = new DataSourceResult
             {
                 Data = manufacturers.Select(x => x.ToModel()),

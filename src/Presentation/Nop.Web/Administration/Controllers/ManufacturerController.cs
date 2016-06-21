@@ -282,6 +282,9 @@ namespace Nop.Admin.Controllers
                 return AccessDeniedView();
 
             var model = new ManufacturerListModel();
+            model.AvailableStores.Add(new SelectListItem { Text = _localizationService.GetResource("Admin.Common.All"), Value = "0" });
+            foreach (var s in _storeService.GetAllStores())
+                model.AvailableStores.Add(new SelectListItem { Text = s.Name, Value = s.Id.ToString() });
             return View(model);
         }
 
@@ -292,7 +295,7 @@ namespace Nop.Admin.Controllers
                 return AccessDeniedView();
 
             var manufacturers = _manufacturerService.GetAllManufacturers(model.SearchManufacturerName,
-                command.Page - 1, command.PageSize, true);
+                model.SearchStoreId, command.Page - 1, command.PageSize, true);
             var gridModel = new DataSourceResult
             {
                 Data = manufacturers.Select(x => x.ToModel()),
@@ -367,7 +370,15 @@ namespace Nop.Admin.Controllers
                 _customerActivityService.InsertActivity("AddNewManufacturer", _localizationService.GetResource("ActivityLog.AddNewManufacturer"), manufacturer.Name);
 
                 SuccessNotification(_localizationService.GetResource("Admin.Catalog.Manufacturers.Added"));
-                return continueEditing ? RedirectToAction("Edit", new { id = manufacturer.Id }) : RedirectToAction("List");
+
+                if (continueEditing)
+                {
+                    //selected tab
+                    SaveSelectedTabName();
+
+                    return RedirectToAction("Edit", new { id = manufacturer.Id });
+                }
+                return RedirectToAction("List");
             }
 
             //If we got this far, something failed, redisplay form
@@ -478,7 +489,7 @@ namespace Nop.Admin.Controllers
                 if (continueEditing)
                 {
                     //selected tab
-                    SaveSelectedTabIndex();
+                    SaveSelectedTabName();
 
                     return RedirectToAction("Edit",  new {id = manufacturer.Id});
                 }
@@ -550,7 +561,7 @@ namespace Nop.Admin.Controllers
             {
                 var bytes = _exportManager.ExportManufacturersToXlsx(_manufacturerService.GetAllManufacturers(showHidden: true).Where(p=>!p.Deleted));
                  
-                return File(bytes, "text/xls", "manufacturers.xlsx");
+                return File(bytes, MimeTypes.TextXlsx, "manufacturers.xlsx");
             }
             catch (Exception exc)
             {
@@ -574,14 +585,14 @@ namespace Nop.Admin.Controllers
                 var file = Request.Files["importexcelfile"];
                 if (file != null && file.ContentLength > 0)
                 {
-                    _importManager.ImportManufacturerFromXlsx(file.InputStream);
+                    _importManager.ImportManufacturersFromXlsx(file.InputStream);
                 }
                 else
                 {
                     ErrorNotification(_localizationService.GetResource("Admin.Common.UploadFile"));
                     return RedirectToAction("List");
                 }
-                SuccessNotification(_localizationService.GetResource("Admin.Catalog.Manufacturer.Imported"));
+                SuccessNotification(_localizationService.GetResource("Admin.Catalog.Manufacturers.Imported"));
                 return RedirectToAction("List");
             }
             catch (Exception exc)

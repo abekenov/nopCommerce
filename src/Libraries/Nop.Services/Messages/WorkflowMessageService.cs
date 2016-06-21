@@ -79,6 +79,9 @@ namespace Nop.Services.Messages
             //Replace subject and body tokens 
             var subjectReplaced = _tokenizer.Replace(subject, tokens, false);
             var bodyReplaced = _tokenizer.Replace(body, tokens, true);
+
+            //limit name length
+            toName = CommonHelper.EnsureMaximumLength(toName, 300);
             
             var email = new QueuedEmail
             {
@@ -1456,7 +1459,7 @@ namespace Nop.Services.Messages
         }
 
         /// <summary>
-        /// Sends a "new VAT sumitted" notification to a store owner
+        /// Sends a "new VAT submitted" notification to a store owner
         /// </summary>
         /// <param name="customer">Customer</param>
         /// <param name="vatName">Received VAT name</param>

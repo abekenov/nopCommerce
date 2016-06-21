@@ -6,11 +6,15 @@ using System.Text;
 using System.Web;
 using System.Web.Mvc;
 using System.Web.Optimization;
+using Nop.Core;
 using Nop.Core.Domain.Seo;
 using Nop.Services.Seo;
 
 namespace Nop.Web.Framework.UI
 {
+    /// <summary>
+    /// Page head builder
+    /// </summary>
     public partial class PageHeadBuilder : IPageHeadBuilder
     {
         #region Fields
@@ -25,10 +29,17 @@ namespace Nop.Web.Framework.UI
         private readonly Dictionary<ResourceLocation, List<string>> _cssParts;
         private readonly List<string> _canonicalUrlParts;
         private readonly List<string> _headCustomParts;
+        private readonly List<string> _pageCssClassParts;
+        private string _editPageUrl;
+        private string _activeAdminMenuSystemName;
         #endregion
 
         #region Ctor
 
+        /// <summary>
+        /// Constuctor
+        /// </summary>
+        /// <param name="seoSettings">SEO settings</param>
         public PageHeadBuilder(SeoSettings seoSettings)
         {
             this._seoSettings = seoSettings;
@@ -39,6 +50,7 @@ namespace Nop.Web.Framework.UI
             this._cssParts = new Dictionary<ResourceLocation, List<string>>();
             this._canonicalUrlParts = new List<string>();
             this._headCustomParts = new List<string>();
+            this._pageCssClassParts = new List<string>();
         }
 
         #endregion
@@ -181,9 +193,9 @@ namespace Nop.Web.Framework.UI
             var result = !String.IsNullOrEmpty(metaKeyword) ? metaKeyword : _seoSettings.DefaultMetaKeywords;
             return result;
         }
+    
 
-
-        public virtual void AddScriptParts(ResourceLocation location, string part, bool excludeFromBundle)
+        public virtual void AddScriptParts(ResourceLocation location, string part, bool excludeFromBundle, bool isAsync)
         {
             if (!_scriptParts.ContainsKey(location))
                 _scriptParts.Add(location, new List<ScriptReferenceMeta>());
@@ -194,10 +206,11 @@ namespace Nop.Web.Framework.UI
             _scriptParts[location].Add(new ScriptReferenceMeta
             {
                 ExcludeFromBundle = excludeFromBundle,
+                IsAsync = isAsync,
                 Part = part
             });
         }
-        public virtual void AppendScriptParts(ResourceLocation location, string part, bool excludeFromBundle)
+        public virtual void AppendScriptParts(ResourceLocation location, string part, bool excludeFromBundle, bool isAsync)
         {
             if (!_scriptParts.ContainsKey(location))
                 _scriptParts.Add(location, new List<ScriptReferenceMeta>());
@@ -208,6 +221,7 @@ namespace Nop.Web.Framework.UI
             _scriptParts[location].Insert(0, new ScriptReferenceMeta
             {
                 ExcludeFromBundle = excludeFromBundle,
+                IsAsync = isAsync,
                 Part = part
             });
         }
@@ -233,7 +247,7 @@ namespace Nop.Web.Framework.UI
                     .ToArray();
                 var partsToDontBundle = _scriptParts[location]
                     .Where(x => x.ExcludeFromBundle)
-                    .Select(x => x.Part)
+                    .Select(x => new  { x.Part, x.IsAsync})
                     .Distinct()
                     .ToArray();
 
@@ -266,9 +280,9 @@ namespace Nop.Web.Framework.UI
                 }
 
                 //parts to do not bundle
-                foreach (var path in partsToDontBundle)
+                foreach (var item in partsToDontBundle)
                 {
-                    result.AppendFormat("<script src=\"{0}\" type=\"text/javascript\"></script>", urlHelper.Content(path));
+                    result.AppendFormat("<script {2}src=\"{0}\" type=\"{1}\"></script>", urlHelper.Content(item.Part), MimeTypes.TextJavascript, item.IsAsync ? "async " : "");
                     result.Append(Environment.NewLine);
                 }
                 return result.ToString();
@@ -277,9 +291,9 @@ namespace Nop.Web.Framework.UI
             {
                 //bundling is disabled
                 var result = new StringBuilder();
-                foreach (var path in _scriptParts[location].Select(x => x.Part).Distinct())
+                foreach (var item in _scriptParts[location].Select(x => new { x.Part, x.IsAsync}).Distinct())
                 {
-                    result.AppendFormat("<script src=\"{0}\" type=\"text/javascript\"></script>", urlHelper.Content(path));
+                    result.AppendFormat("<script {2}src=\"{0}\" type=\"{1}\"></script>", urlHelper.Content(item.Part), MimeTypes.TextJavascript, item.IsAsync ? "async ":"");
                     result.Append(Environment.NewLine);
                 }
                 return result.ToString();
@@ -365,8 +379,8 @@ namespace Nop.Web.Framework.UI
                 var result = new StringBuilder();
                 foreach (var path in distinctParts)
                 {
-                    result.AppendFormat("<link href=\"{0}\" rel=\"stylesheet\" type=\"text/css\" />", urlHelper.Content(path));
-                    result.Append(Environment.NewLine);
+                    result.AppendFormat("<link href=\"{0}\" rel=\"stylesheet\" type=\"{1}\" />", urlHelper.Content(path), MimeTypes.TextCss);
+                    result.AppendLine();
                 }
                 return result.ToString();
             }
@@ -398,6 +412,7 @@ namespace Nop.Web.Framework.UI
             return result.ToString();
         }
 
+
         public virtual void AddHeadCustomParts(string part)
         {
             if (string.IsNullOrEmpty(part))
@@ -428,6 +443,62 @@ namespace Nop.Web.Framework.UI
             return result.ToString();
         }
 
+        
+        public virtual void AddPageCssClassParts(string part)
+        {
+            if (string.IsNullOrEmpty(part))
+                return;
+
+            _pageCssClassParts.Add(part);
+        }
+        public virtual void AppendPageCssClassParts(string part)
+        {
+            if (string.IsNullOrEmpty(part))
+                return;
+
+            _pageCssClassParts.Insert(0, part);
+        }
+        public virtual string GeneratePageCssClasses()
+        {
+            string result = string.Join(" ", _pageCssClassParts.AsEnumerable().Reverse().ToArray());
+            return result;
+        }
+
+
+        /// <summary>
+        /// Specify "edit page" URL
+        /// </summary>
+        /// <param name="url">URL</param>
+        public virtual void AddEditPageUrl(string url)
+        {
+            _editPageUrl = url;
+        }
+        /// <summary>
+        /// Get "edit page" URL
+        /// </summary>
+        /// <returns>URL</returns>
+        public virtual string GetEditPageUrl()
+        {
+            return _editPageUrl;
+        }
+
+
+        /// <summary>
+        /// Specify system name of admin menu item that should be selected (expanded)
+        /// </summary>
+        /// <param name="systemName">System name</param>
+        public virtual void SetActiveMenuItemSystemName(string systemName)
+        {
+            _activeAdminMenuSystemName = systemName;
+        }
+        /// <summary>
+        /// Get system name of admin menu item that should be selected (expanded)
+        /// </summary>
+        /// <returns>System name</returns>
+        public virtual string GetActiveMenuItemSystemName()
+        {
+            return _activeAdminMenuSystemName;
+        }
 
         #endregion
 
@@ -436,6 +507,8 @@ namespace Nop.Web.Framework.UI
         private class ScriptReferenceMeta
         {
             public bool ExcludeFromBundle { get; set; }
+
+            public bool IsAsync { get; set; }
 
             public string Part { get; set; }
         }
